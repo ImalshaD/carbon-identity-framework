@@ -170,6 +170,7 @@ public class LogConstants {
         public static final String UPDATE_FLOW = "update-flow-";
         public static final String UPDATE_FLOW_CONFIG = "update-flow-config-";
         public static final String DELETE_FLOW = "delete-flow-";
+        public static final String REVERT_FLOW = "revert-flow-";
 
         private FlowManagement() {
 

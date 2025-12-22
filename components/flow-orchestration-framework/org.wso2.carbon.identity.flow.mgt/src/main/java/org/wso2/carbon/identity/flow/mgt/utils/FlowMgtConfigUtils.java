@@ -140,6 +140,19 @@ public class FlowMgtConfigUtils {
     }
 
     /**
+     * Delete the flow configuration for the given flow type and tenant domain.
+     *
+     * @param flowType     The type of the flow.
+     * @param tenantDomain The tenant domain.
+     * @throws FlowMgtServerException If an error occurs while deleting the flow configuration.
+     */
+    public static void deleteFlowConfig(String flowType, String tenantDomain) throws FlowMgtServerException {
+
+        String resourceName = RESOURCE_NAME_PREFIX + flowType;
+        deleteResource(resourceName, tenantDomain);
+    }
+
+    /**
      * Get the default flow configurations.
      *
      * @return FlowMgtConfig
@@ -280,6 +293,23 @@ public class FlowMgtConfigUtils {
             }
         }
         return resource;
+    }
+
+    /**
+     * Delete a resource from the configuration management.
+     *
+     * @param resourceName The name of the resource to be deleted.
+     * @param tenantDomain The tenant domain.
+     * @throws FlowMgtServerException If an error occurs while deleting the resource.
+     */
+    private static void deleteResource(String resourceName, String tenantDomain) throws FlowMgtServerException {
+
+        try {
+            getConfigurationManager().deleteResource(RESOURCE_TYPE, resourceName);
+        } catch (ConfigurationManagementException e) {
+            throw FlowMgtUtils.handleServerException(Constants.ErrorMessages.ERROR_CODE_DELETING_FLOW_CONFIG, e,
+                    tenantDomain);
+        }
     }
 
     /**

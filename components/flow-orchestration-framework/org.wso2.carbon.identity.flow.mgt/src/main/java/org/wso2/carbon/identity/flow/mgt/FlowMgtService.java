@@ -125,13 +125,39 @@ public class FlowMgtService {
             throw handleServerException(Constants.ErrorMessages.ERROR_CODE_DELETE_FLOW, e,
                     IdentityTenantUtil.getTenantDomain(tenantID));
         }
+        revertFlow(flowType, tenantID);
+//        clearFlowResolveCache(tenantID);
+//        FLOW_DAO.deleteFlow(flowType, tenantID);
+//        AuditLog.AuditLogBuilder auditLogBuilder =
+//                new AuditLog.AuditLogBuilder(getInitiatorId(), LoggerUtils.getInitiatorType(getInitiatorId()),
+//                        flowType,
+//                        LoggerUtils.Target.Flow.name(),
+//                        String.format("%s%s", LogConstants.FlowManagement.DELETE_FLOW, flowType));
+//        triggerAuditLogEvent(auditLogBuilder, true);
+    }
+
+    public void revertFlow(String flowType, int tenantID) throws FlowMgtFrameworkException {
+
+        try {
+            // Only allow deleting flows in the non-root organization.
+            String tenantDomain = IdentityTenantUtil.getTenantDomain(tenantID);
+            String orgId = FlowMgtServiceDataHolder.getInstance().getOrganizationManager()
+                    .resolveOrganizationId(tenantDomain);
+            if (FlowMgtServiceDataHolder.getInstance().getOrganizationManager().isPrimaryOrganization(orgId)) {
+                return;
+            }
+        } catch (OrganizationManagementException e) {
+            throw handleServerException(Constants.ErrorMessages.ERROR_CODE_DELETE_FLOW, e,
+                    IdentityTenantUtil.getTenantDomain(tenantID));
+        }
         clearFlowResolveCache(tenantID);
         FLOW_DAO.deleteFlow(flowType, tenantID);
+        FlowMgtConfigUtils.deleteFlowConfig(flowType, IdentityTenantUtil.getTenantDomain(tenantID));
         AuditLog.AuditLogBuilder auditLogBuilder =
                 new AuditLog.AuditLogBuilder(getInitiatorId(), LoggerUtils.getInitiatorType(getInitiatorId()),
                         flowType,
                         LoggerUtils.Target.Flow.name(),
-                        String.format("%s%s", LogConstants.FlowManagement.DELETE_FLOW, flowType));
+                        String.format("%s%s", LogConstants.FlowManagement.REVERT_FLOW, flowType));
         triggerAuditLogEvent(auditLogBuilder, true);
     }
 
