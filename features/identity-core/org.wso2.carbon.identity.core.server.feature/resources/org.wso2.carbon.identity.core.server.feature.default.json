@@ -470,6 +470,7 @@
 
   "identity_mgt.forced_challenge_questions.enable_forced_challenge_questions": false,
   "identity_mgt.challenge_questions.min_required_answers": "1",
+  "identity_mgt.challenge_questions.skip_sending_questions_in_url": true,
 
   "identity_mgt.password_reset_challenge_questions.answer_regex": ".*",
   "identity_mgt.password_reset_challenge_questions.enforce_answer_uniqueness": false,
@@ -2116,8 +2117,8 @@
   "actions.types.pre_update_password.version.latest": "v2",
 
   "external_api_client.http_client.connection_timeout": "2000",
-  "external_api_client.http_client.read_timeout": "2000",
-  "external_api_client.http_client.request_timeout": "2000",
+  "external_api_client.http_client.read_timeout": "3000",
+  "external_api_client.http_client.connection_request_timeout": "1000",
   "external_api_client.http_client.connection_pool_size": "20",
   "external_api_client.http_client.max_connection_per_route": "3",
   "external_api_client.retry_count": "0",
@@ -2183,5 +2184,6 @@
   "identifier_first.preserve_case_sensitivity.enabled": true,
   "pastr_cookie.max_age": "-1",
 
-  "resolve_tenant_domain_from_username.enabled": false
+  "resolve_tenant_domain_from_username.enabled": false,
+  "authentication.mark_step_completed_on_interrupt": true
 }

@@ -817,6 +817,20 @@ public class DefaultStepHandler implements StepHandler {
                 return;
             }
 
+            if (FrameworkUtils.markStepCompletedOnInterrupt()) {
+                /*
+                 * If the authenticator flow status is FAIL_COMPLETED, USER_ABORT, UNKNOWN or FALLBACK,
+                 * we mark the step as completed to avoid skipping the step in the next iterations.
+                 * This is done to avoid setting the authentication step status as SUCCESS when there is an invalid
+                 * authentication status returned from the authenticator.
+                 */
+                if (status != AuthenticatorFlowStatus.SUCCESS_COMPLETED) {
+                    stepConfig.setCompleted(true);
+                    context.setRequestAuthenticated(false);
+                    return;
+                }
+            }
+
             // Set authorized organization and user resident organization for B2B user logins.
             if (context.getSubject() != null && isLoggedInWithOrganizationLogin(authenticatorConfig)) {
                 String userResidentOrganization = resolveUserResidentOrganization(context.getSubject());
