@@ -32,6 +32,7 @@ import org.wso2.carbon.identity.flow.mgt.exception.FlowMgtServerException;
 import org.wso2.carbon.identity.flow.mgt.internal.FlowMgtServiceDataHolder;
 import org.wso2.carbon.identity.flow.mgt.model.FlowConfigDTO;
 import org.wso2.carbon.identity.flow.mgt.model.FlowDTO;
+import org.wso2.carbon.identity.flow.mgt.model.FlowRevertDTO;
 import org.wso2.carbon.identity.flow.mgt.model.GraphConfig;
 import org.wso2.carbon.identity.flow.mgt.utils.FlowMgtConfigUtils;
 import org.wso2.carbon.identity.flow.mgt.utils.FlowMgtUtils;
@@ -41,6 +42,8 @@ import org.wso2.carbon.identity.organization.management.service.exception.Organi
 import org.wso2.carbon.identity.organization.resource.hierarchy.traverse.service.OrgResourceResolverService;
 import org.wso2.carbon.identity.organization.resource.hierarchy.traverse.service.exception.OrgResourceHierarchyTraverseException;
 import org.wso2.carbon.identity.organization.resource.hierarchy.traverse.service.strategy.FirstFoundAggregationStrategy;
+import org.wso2.carbon.idp.mgt.IdentityProviderManagementException;
+import org.wso2.carbon.idp.mgt.IdpManager;
 import org.wso2.carbon.utils.AuditLog;
 
 import java.util.List;
@@ -125,40 +128,60 @@ public class FlowMgtService {
             throw handleServerException(Constants.ErrorMessages.ERROR_CODE_DELETE_FLOW, e,
                     IdentityTenantUtil.getTenantDomain(tenantID));
         }
-        revertFlow(flowType, tenantID);
-//        clearFlowResolveCache(tenantID);
-//        FLOW_DAO.deleteFlow(flowType, tenantID);
-//        AuditLog.AuditLogBuilder auditLogBuilder =
-//                new AuditLog.AuditLogBuilder(getInitiatorId(), LoggerUtils.getInitiatorType(getInitiatorId()),
-//                        flowType,
-//                        LoggerUtils.Target.Flow.name(),
-//                        String.format("%s%s", LogConstants.FlowManagement.DELETE_FLOW, flowType));
-//        triggerAuditLogEvent(auditLogBuilder, true);
-    }
-
-    public void revertFlow(String flowType, int tenantID) throws FlowMgtFrameworkException {
-
-        try {
-            // Only allow deleting flows in the non-root organization.
-            String tenantDomain = IdentityTenantUtil.getTenantDomain(tenantID);
-            String orgId = FlowMgtServiceDataHolder.getInstance().getOrganizationManager()
-                    .resolveOrganizationId(tenantDomain);
-            if (FlowMgtServiceDataHolder.getInstance().getOrganizationManager().isPrimaryOrganization(orgId)) {
-                return;
-            }
-        } catch (OrganizationManagementException e) {
-            throw handleServerException(Constants.ErrorMessages.ERROR_CODE_DELETE_FLOW, e,
-                    IdentityTenantUtil.getTenantDomain(tenantID));
-        }
-        clearFlowResolveCache(tenantID);
-        FLOW_DAO.deleteFlow(flowType, tenantID);
-        FlowMgtConfigUtils.deleteFlowConfig(flowType, IdentityTenantUtil.getTenantDomain(tenantID));
+        deleteFlowAndCleanCache(flowType, tenantID);
         AuditLog.AuditLogBuilder auditLogBuilder =
                 new AuditLog.AuditLogBuilder(getInitiatorId(), LoggerUtils.getInitiatorType(getInitiatorId()),
                         flowType,
                         LoggerUtils.Target.Flow.name(),
-                        String.format("%s%s", LogConstants.FlowManagement.REVERT_FLOW, flowType));
+                        String.format("%s%s", LogConstants.FlowManagement.DELETE_FLOW, flowType));
         triggerAuditLogEvent(auditLogBuilder, true);
+    }
+
+    public void revertFlow(FlowRevertDTO flowRevertDTO, int tenantID) throws FlowMgtFrameworkException {
+
+        // Reverting flows are allowed only in sub-organizations(non-root organizations).
+        if (isRootOrganization(tenantID)) {
+            return;
+        }
+
+        String flowType = flowRevertDTO.getFlowType();
+        List<String> properties = flowRevertDTO.getConnectorPropertiesToRevert();
+
+        String tenantDomain = IdentityTenantUtil.getTenantDomain(tenantID);
+
+        FlowDTO existingFlow = FLOW_DAO.getFlow(flowType, tenantID);
+        FlowConfigDTO existingFlowConfig = FlowMgtConfigUtils.getFlowConfig(flowType, tenantDomain);
+
+        try {
+            if (flowRevertDTO.isRevertFlow() && existingFlow != null) {
+                deleteFlowAndCleanCache(flowType, tenantID);
+            }
+
+            if (flowRevertDTO.isRevertFlow() && existingFlowConfig != null) {
+                deleteFlowConfig(flowType, tenantDomain);
+            }
+
+            if (Constants.FlowTypes.INVITED_USER_REGISTRATION.getType().equals(flowType) && !properties.isEmpty()) {
+                deleteConnectorConfiguration(properties, tenantDomain);
+            }
+        } catch (FlowMgtFrameworkException e) {
+            if (flowRevertDTO.isRevertFlow()) {
+                rollBackFlow(existingFlow, tenantID);
+            }
+
+            if (flowRevertDTO.isRevertFlowConfigs()) {
+                rollBackFlowConfig(existingFlowConfig, tenantDomain);
+            }
+            throw handleServerException(Constants.ErrorMessages.ERROR_CODE_DELETE_FLOW, e,
+                    IdentityTenantUtil.getTenantDomain(tenantID));
+        } finally {
+            AuditLog.AuditLogBuilder auditLogBuilder =
+                    new AuditLog.AuditLogBuilder(getInitiatorId(), LoggerUtils.getInitiatorType(getInitiatorId()),
+                            flowType,
+                            LoggerUtils.Target.Flow.name(),
+                            String.format("%s%s", LogConstants.FlowManagement.REVERT_FLOW, flowType));
+            triggerAuditLogEvent(auditLogBuilder, true);
+        }
     }
 
     /**
@@ -273,6 +296,56 @@ public class FlowMgtService {
             FlowMgtUtils.clearCache(cacheKey, FlowResolveCache.getInstance(), tenantId);
         } catch (OrganizationManagementException e) {
             throw handleServerException(Constants.ErrorMessages.ERROR_CODE_CLEAR_CACHE_FAILED, e, currentTenantDomain);
+        }
+    }
+
+    private void deleteFlowConfig(String flowType, String tenantDomain) throws FlowMgtFrameworkException {
+
+        FlowMgtConfigUtils.deleteFlowConfig(flowType, tenantDomain);
+    }
+
+    private void rollBackFlowConfig(FlowConfigDTO flowConfigDTO, String tenantDomain) throws FlowMgtFrameworkException {
+
+        if (flowConfigDTO != null) {
+            FlowMgtConfigUtils.addFlowConfig(flowConfigDTO, tenantDomain);
+        }
+    }
+
+    private void  rollBackFlow(FlowDTO flowDTO, int tenantID) throws FlowMgtFrameworkException {
+
+        if (flowDTO != null) {
+            FLOW_DAO.updateFlow(flowDTO.getFlowType(),
+                    new GraphBuilder().withSteps(flowDTO.getSteps()).build(), tenantID, DEFAULT_FLOW_NAME);
+        }
+    }
+
+    private void deleteFlowAndCleanCache(String flowType, int tenantID) throws FlowMgtFrameworkException {
+
+        clearFlowResolveCache(tenantID);
+        FLOW_DAO.deleteFlow(flowType, tenantID);
+    }
+
+    private void deleteConnectorConfiguration(List<String> propertyNames, String tenantDomain)
+            throws FlowMgtFrameworkException {
+
+        try {
+            IdpManager identityProviderManager = FlowMgtServiceDataHolder.getInstance().getIdpManager();
+            identityProviderManager.deleteResidentIdpProperties(propertyNames, tenantDomain);
+        } catch (IdentityProviderManagementException e) {
+            throw new FlowMgtFrameworkException(e.getMessage());
+        }
+    }
+
+    private boolean isRootOrganization(int tenantID) throws FlowMgtFrameworkException {
+
+        try {
+            String tenantDomain = IdentityTenantUtil.getTenantDomain(tenantID);
+            String orgId = FlowMgtServiceDataHolder.getInstance().getOrganizationManager()
+                    .resolveOrganizationId(tenantDomain);
+            return FlowMgtServiceDataHolder.getInstance().getOrganizationManager().isPrimaryOrganization(orgId);
+        } catch (OrganizationManagementException e) {
+            throw handleServerException(Constants.ErrorMessages.ERROR_CODE_DELETE_FLOW, e,
+                    IdentityTenantUtil.getTenantDomain(tenantID));
         }
     }
 }

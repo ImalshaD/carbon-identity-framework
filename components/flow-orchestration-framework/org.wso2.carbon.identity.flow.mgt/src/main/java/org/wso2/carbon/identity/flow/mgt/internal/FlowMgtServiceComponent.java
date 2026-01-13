@@ -33,6 +33,7 @@ import org.wso2.carbon.identity.flow.mgt.FlowAIService;
 import org.wso2.carbon.identity.flow.mgt.FlowMgtService;
 import org.wso2.carbon.identity.organization.management.service.OrganizationManager;
 import org.wso2.carbon.identity.organization.resource.hierarchy.traverse.service.OrgResourceResolverService;
+import org.wso2.carbon.idp.mgt.IdpManager;
 
 /**
  * OSGi declarative services component which handles registration and un-registration of flow management service.
@@ -112,5 +113,21 @@ public class FlowMgtServiceComponent {
     protected void unsetConfigurationManager(ConfigurationManager configurationManager) {
 
         FlowMgtServiceDataHolder.getInstance().setConfigurationManager(null);
+    }
+
+    @Reference(
+            name = "IdentityProviderManager",
+            service = IdpManager.class,
+            cardinality = ReferenceCardinality.MANDATORY,
+            policy = ReferencePolicy.DYNAMIC,
+            unbind = "unsetIdpManager")
+    protected void setIdpManager(IdpManager idpManager) {
+
+        FlowMgtServiceDataHolder.getInstance().setIdpManager(idpManager);
+    }
+
+    protected void unsetIdpManager(IdpManager idpManager) {
+
+        FlowMgtServiceDataHolder.getInstance().setIdpManager(null);
     }
 }

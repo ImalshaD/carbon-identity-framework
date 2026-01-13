@@ -21,6 +21,7 @@ package org.wso2.carbon.identity.flow.mgt.internal;
 import org.wso2.carbon.identity.configuration.mgt.core.ConfigurationManager;
 import org.wso2.carbon.identity.organization.management.service.OrganizationManager;
 import org.wso2.carbon.identity.organization.resource.hierarchy.traverse.service.OrgResourceResolverService;
+import org.wso2.carbon.idp.mgt.IdpManager;
 
 /**
  * A singleton class to hold the data of the flow management service.
@@ -30,6 +31,7 @@ public class FlowMgtServiceDataHolder {
     private OrganizationManager organizationManager;
     private OrgResourceResolverService orgResourceResolverService;
     private ConfigurationManager configurationManager;
+    private IdpManager idpManager;
 
     private static final FlowMgtServiceDataHolder INSTANCE = new FlowMgtServiceDataHolder();
 
@@ -70,5 +72,15 @@ public class FlowMgtServiceDataHolder {
     public void setConfigurationManager(ConfigurationManager configurationManager) {
 
         this.configurationManager = configurationManager;
+    }
+
+    public void setIdpManager(IdpManager idpManager) {
+
+        this.idpManager = idpManager;
+    }
+
+    public IdpManager getIdpManager() {
+
+        return idpManager;
     }
 }
