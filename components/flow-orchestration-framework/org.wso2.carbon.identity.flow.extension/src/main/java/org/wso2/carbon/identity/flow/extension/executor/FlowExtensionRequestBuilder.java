@@ -371,7 +371,7 @@ public class FlowExtensionRequestBuilder implements ActionExecutionRequestBuilde
                     if (annotation != null) {
                         pathTypeAnnotations.put(cleanPath, annotation);
                     }
-                    cleanPaths.add(toExternalPath(cleanPath));
+                    cleanPaths.add(cleanPath);
                 } else {
                     LOG.warn("Annotation for path " + cleanPath
                             + " exceeds maximum attribute limit. Skipping path.");
@@ -615,22 +615,22 @@ public class FlowExtensionRequestBuilder implements ActionExecutionRequestBuilde
         }
     }
 
-    /**
-     * Convert an internal path to its external (API-facing) form.
-     * User-claim paths stored internally as {@code /user/claims/<uri>} are emitted
-     * externally as {@code /user/claims[uri=<uri>]}. All other paths are unchanged.
-     */
-    private static String toExternalPath(String internalPath) {
-
-        if (internalPath != null
-                && internalPath.startsWith(FlowContextPaths.USER_CLAIMS_PATH_PREFIX)) {
-            String claimUri = internalPath.substring(
-                    FlowContextPaths.USER_CLAIMS_PATH_PREFIX.length());
-            return FlowContextPaths.USER_CLAIMS_SELECTOR_PREFIX + claimUri
-                    + FlowContextPaths.USER_CLAIMS_SELECTOR_SUFFIX;
-        }
-        return internalPath;
-    }
+//    /**
+//     * Convert an internal path to its external (API-facing) form.
+//     * User-claim paths stored internally as {@code /user/claims/<uri>} are emitted
+//     * externally as {@code /user/claims[uri=<uri>]}. All other paths are unchanged.
+//     */
+//    private static String toExternalPath(String internalPath) {
+//
+//        if (internalPath != null
+//                && internalPath.startsWith(FlowContextPaths.USER_CLAIMS_PATH_PREFIX)) {
+//            String claimUri = internalPath.substring(
+//                    FlowContextPaths.USER_CLAIMS_PATH_PREFIX.length());
+//            return FlowContextPaths.USER_CLAIMS_SELECTOR_PREFIX + claimUri
+//                    + FlowContextPaths.USER_CLAIMS_SELECTOR_SUFFIX;
+//        }
+//        return internalPath;
+//    }
 
     /**
      * Check if any exposed leaf path falls under the given area prefix.
